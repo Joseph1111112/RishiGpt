@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rishi GPT</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gemini: {
+                            bgLight: '#f8fafd',
+                            cardLight: '#ffffff',
+                            sidebarLight: '#f0f4f9',
+                            borderLight: '#e3e8ef',
+                            bgDark: '#131314',
+                            cardDark: '#1e1e20',
+                            sidebarDark: '#1e1e20',
+                            borderDark: '#2d2f31',
+                            accent: '#1a73e8',
+                            accentHover: '#1557b0'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.6);
+        }
+
+        /* Typography fixes for markdown in messages */
+        .prose pre {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .prose code {
+            font-family: monospace;
+            background-color: rgba(150, 150, 150, 0.15);
+            padding: 0.15rem 0.3rem;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+        }
+        .prose pre code {
+            background-color: transparent !important;
+            padding: 0 !important;
+        }
+        .prose p {
+            margin-bottom: 0.75rem;
+            line-height: 1.625;
+        }
+        .prose p:last-child {
+            margin-bottom: 0;
+        }
+        .prose ul { list-style-type: disc; margin-left: 1.25rem; margin-bottom: 0.75rem; }
+        .prose ol { list-style-type: decimal; margin-left: 1.25rem; margin-bottom: 0.75rem; }
+        .prose blockquote { border-left-width: 4px; border-color: #9ca3af; padding-left: 1rem; italic: true; margin-bottom: 0.75rem; }
+
+        /* Mobile viewport height fix */
+        .app-height {
+            height: 100vh;
+            height: 100dvh;
+        }
+    </style>
+</head>
+<body class="bg-gemini-bgLight dark:bg-gemini-bgDark text-gray-800 dark:text-gray-200 antialiased app-height flex overflow-hidden">
+
+    <!-- Fallback Loader for HTML safety -->
+    <div id="loading" class="fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-gray-900 transition-opacity duration-300">
+        <div class="flex flex-col items-center gap-3">
+            <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-sm text-gray-500 font-medium">Initializing Rishi GPT...</p>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app" class="flex w-full h-full relative overflow-hidden">
+
+        <!-- Mobile Sidebar Overlay -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-20 hidden md:hidden transition-opacity"></div>
+
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-30 w-72 bg-gemini-sidebarLight dark:bg-gemini-sidebarDark border-r border-gemini-borderLight dark:border-gemini-borderDark flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0">
+            <!-- Sidebar Header -->
+            <div class="p-4 flex items-center justify-between">
+                <button id="btn-new-chat" class="flex-1 flex items-center gap-3 px-4 py-3 bg-blue-100 dark:bg-gray-800 hover:bg-blue-200 dark:hover:bg-gray-700 text-blue-700 dark:text-blue-400 rounded-full font-medium transition-colors text-sm shadow-sm">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    <span>New Chat</span>
+                </button>
+                <button id="btn-close-sidebar" class="md:hidden ml-2 p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Chat History List -->
+            <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1" id="chat-history-container">
+                <!-- Chat history items dynamically populated -->
+            </div>
+
+            <!-- Sidebar Footer Controls -->
+            <div class="p-3 border-t border-gemini-borderLight dark:border-gemini-borderDark space-y-1">
+                <button id="btn-toggle-theme" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm transition-colors">
+                    <i data-lucide="sun" id="theme-icon-light" class="w-4 h-4 hidden"></i>
+                    <i data-lucide="moon" id="theme-icon-dark" class="w-4 h-4"></i>
+                    <span id="theme-text">Dark Mode</span>
+                </button>
+                <button id="btn-open-prompt" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm transition-colors">
+                    <i data-lucide="sliders" class="w-4 h-4"></i>
+                    <span>System Prompt</span>
+                </button>
+                <button id="btn-open-settings" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm transition-colors">
+                    <i data-lucide="settings" class="w-4 h-4"></i>
+                    <span>Settings</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="flex-1 flex flex-col h-full w-full min-w-0 bg-gemini-bgLight dark:bg-gemini-bgDark relative">
+            <!-- Header Bar -->
+            <header class="h-14 px-4 border-b border-gemini-borderLight dark:border-gemini-borderDark flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <button id="btn-toggle-sidebar" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 md:hidden">
+                        <i data-lucide="menu" class="w-5 h-5"></i>
+                    </button>
+                    <span class="font-semibold text-lg bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent" id="current-chat-title">Rishi GPT</span>
+                </div>
+                <div class="text-xs text-gray-400 font-mono" id="current-model-badge">
+                    deepseek-r1:free
+                </div>
+            </header>
+
+            <!-- Scrollable Messages Container -->
+            <div id="messages-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                <!-- Welcome View (Default when empty) -->
+                <div id="welcome-view" class="h-full flex flex-col items-center justify-center text-center px-4">
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 flex items-center justify-center text-white mb-4 shadow-lg animate-pulse">
+                        <i data-lucide="sparkles" class="w-8 h-8"></i>
+                    </div>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-2">Hello, Friend</h1>
+                    <p class="text-gray-500 dark:text-gray-400 max-w-md text-sm mb-6">How can I help you today? Ask questions, write code, analyze text, or brainstorm ideas.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
+                        <button class="prompt-suggestion p-3 text-left rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-xs border border-gray-200 dark:border-gray-700">
+                            💡 "Write a Python script to scrape website headers"
+                        </button>
+                        <button class="prompt-suggestion p-3 text-left rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-xs border border-gray-200 dark:border-gray-700">
+                            📝 "Explain quantum computing in plain English"
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sticky Bottom Input Container -->
+            <div class="p-3 md:p-4 bg-gemini-bgLight dark:bg-gemini-bgDark border-t border-gemini-borderLight dark:border-gemini-borderDark shrink-0">
+                <div class="max-w-4xl mx-auto relative bg-white dark:bg-gemini-cardDark border border-gray-300 dark:border-gray-700 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all">
+                    <textarea 
+                        id="chat-input" 
+                        rows="1" 
+                        placeholder="Type a message..." 
+                        class="w-full pl-4 pr-12 py-3 bg-transparent resize-none outline-none text-sm max-h-36 min-h-[44px]"
+                    ></textarea>
+                    <button 
+                        id="btn-send" 
+                        class="absolute right-2 bottom-2 p-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        disabled
+                    >
+                        <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <p class="text-[10px] text-center text-gray-400 mt-2">Rishi GPT may display inaccurate info, so double-check its responses.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Settings -->
+    <div id="modal-settings" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gemini-cardDark rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold mb-4">Settings</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">OpenRouter API Key</label>
+                    <input type="password" id="input-api-key" placeholder="sk-or-v1-..." class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Model Name</label>
+                    <input type="text" id="input-model-name" placeholder="deepseek/deepseek-r1:free" class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-[11px] text-gray-400 mt-1">Examples: deepseek/deepseek-r1:free, google/gemini-flash-1.5</p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button id="btn-close-settings" class="px-4 py-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Cancel</button>
+                <button id="btn-save-settings" class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: System Prompt -->
+    <div id="modal-prompt" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gemini-cardDark rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold mb-4">System Prompt</h2>
+            <div>
+                <textarea id="input-system-prompt" rows="4" placeholder="You are a helpful assistant..." class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button id="btn-close-prompt" class="px-4 py-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">Cancel</button>
+                <button id="btn-save-prompt" class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Save System Prompt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Single JavaScript Block at the very end of BODY -->
+    <script>
+        // State Management
+        const STATE = {
+            apiKey: localStorage.getItem('gemini_api_key') || '',
+            model: localStorage.getItem('gemini_model') || 'deepseek/deepseek-r1:free',
+            systemPrompt: localStorage.getItem('gemini_system_prompt') || 'You are a helpful AI assistant.',
+            darkMode: localStorage.getItem('gemini_dark_mode') === 'true',
+            chats: JSON.parse(localStorage.getItem('gemini_chats') || '[]'),
+            currentChatId: localStorage.getItem('gemini_current_chat_id') || null,
+            isGenerating: false
+        };
+
+        // DOM Elements
+        const DOM = {
+            loading: document.getElementById('loading'),
+            sidebar: document.getElementById('sidebar'),
+            sidebarOverlay: document.getElementById('sidebar-overlay'),
+            btnToggleSidebar: document.getElementById('btn-toggle-sidebar'),
+            btnCloseSidebar: document.getElementById('btn-close-sidebar'),
+            btnNewChat: document.getElementById('btn-new-chat'),
+            chatHistoryContainer: document.getElementById('chat-history-container'),
+            btnToggleTheme: document.getElementById('btn-toggle-theme'),
+            themeIconLight: document.getElementById('theme-icon-light'),
+            themeIconDark: document.getElementById('theme-icon-dark'),
+            themeText: document.getElementById('theme-text'),
+            btnOpenSettings: document.getElementById('btn-open-settings'),
+            modalSettings: document.getElementById('modal-settings'),
+            btnCloseSettings: document.getElementById('btn-close-settings'),
+            btnSaveSettings: document.getElementById('btn-save-settings'),
+            inputApiKey: document.getElementById('input-api-key'),
+            inputModelName: document.getElementById('input-model-name'),
+            btnOpenPrompt: document.getElementById('btn-open-prompt'),
+            modalPrompt: document.getElementById('modal-prompt'),
+            btnClosePrompt: document.getElementById('btn-close-prompt'),
+            btnSavePrompt: document.getElementById('btn-save-prompt'),
+            inputSystemPrompt: document.getElementById('input-system-prompt'),
+            currentChatTitle: document.getElementById('current-chat-title'),
+            currentModelBadge: document.getElementById('current-model-badge'),
+            messagesContainer: document.getElementById('messages-container'),
+            welcomeView: document.getElementById('welcome-view'),
+            chatInput: document.getElementById('chat-input'),
+            btnSend: document.getElementById('btn-send')
+        };
+
+        // Initialize App
+        function init() {
+            try {
+                // Initialize Icons safely
+                if (window.lucide) lucide.createIcons();
+
+                // Setup Theme
+                applyTheme();
+
+                // Load Settings Input values
+                DOM.inputApiKey.value = STATE.apiKey;
+                DOM.inputModelName.value = STATE.model;
+                DOM.inputSystemPrompt.value = STATE.systemPrompt;
+                DOM.currentModelBadge.textContent = STATE.model;
+
+                // Ensure initial chat exists
+                if (STATE.chats.length === 0) {
+                    createNewChat(false);
+                } else if (!STATE.currentChatId || !STATE.chats.find(c => c.id === STATE.currentChatId)) {
+                    STATE.currentChatId = STATE.chats[0].id;
+                }
+
+                renderSidebar();
+                renderMessages();
+                attachEventListeners();
+
+            } catch (err) {
+                console.error("Initialization Error:", err);
+            } finally {
+                // Safely hide loader once app is ready
+                if (DOM.loading) {
+                    DOM.loading.classList.add('opacity-0');
+                    setTimeout(() => DOM.loading.style.display = 'none', 300);
+                }
+            }
+        }
+
+        // Theme Handling
+        function applyTheme() {
+            if (STATE.darkMode) {
+                document.documentElement.classList.add('dark');
+                DOM.themeIconLight.classList.remove('hidden');
+                DOM.themeIconDark.classList.add('hidden');
+                DOM.themeText.textContent = 'Light Mode';
+            } else {
+                document.documentElement.classList.remove('dark');
+                DOM.themeIconLight.classList.add('hidden');
+                DOM.themeIconDark.classList.remove('hidden');
+                DOM.themeText.textContent = 'Dark Mode';
+            }
+        }
+
+        function toggleTheme() {
+            STATE.darkMode = !STATE.darkMode;
+            localStorage.setItem('gemini_dark_mode', STATE.darkMode);
+            applyTheme();
+        }
+
+        // Chat Data Management
+        function saveChats() {
+            localStorage.setItem('gemini_chats', JSON.stringify(STATE.chats));
+            localStorage.setItem('gemini_current_chat_id', STATE.currentChatId);
+        }
+
+        function getCurrentChat() {
+            return STATE.chats.find(c => c.id === STATE.currentChatId);
+        }
+
+        function createNewChat(switchChat = true) {
+            const newChat = {
+                id: 'chat_' + Date.now(),
+                title: 'New Chat',
+                messages: []
+            };
+            STATE.chats.unshift(newChat);
+            if (switchChat) {
+                STATE.currentChatId = newChat.id;
+            }
+            saveChats();
+            renderSidebar();
+            renderMessages();
+        }
+
+        function deleteChat(chatId, event) {
+            event.stopPropagation();
+            STATE.chats = STATE.chats.filter(c => c.id !== chatId);
+            if (STATE.chats.length === 0) {
+                createNewChat(false);
+            } else if (STATE.currentChatId === chatId) {
+                STATE.currentChatId = STATE.chats[0].id;
+            }
+            saveChats();
+            renderSidebar();
+            renderMessages();
+        }
+
+        function renameChat(chatId, event) {
+            event.stopPropagation();
+            const chat = STATE.chats.find(c => c.id === chatId);
+            if (!chat) return;
+            const newTitle = prompt("Enter new title:", chat.title);
+            if (newTitle && newTitle.trim() !== '') {
+                chat.title = newTitle.trim();
+    
